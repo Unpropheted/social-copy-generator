@@ -1,1 +1,19 @@
-from pathlib import PathOUTPUT_DIR = Path("outputs")def save_copy(copy, image_path):    image_path = Path(image_path)    OUTPUT_DIR.mkdir(exist_ok=True)    output_path = OUTPUT_DIR / f"{image_path.stem}_copy.txt"    output_path.write_text(        copy,        encoding="utf-8"    )    return output_path
+from pathlib import Path
+
+
+OUTPUT_DIR = Path("outputs")
+
+
+def save_copy(copy, image_path):
+    image_path = Path(image_path)
+
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    output_path = OUTPUT_DIR / f"{image_path.stem}_copy.txt"
+
+    output_path.write_text(
+        copy,
+        encoding="utf-8"
+    )
+
+    return output_path

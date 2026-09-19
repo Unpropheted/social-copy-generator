@@ -1,1 +1,46 @@
-import sysfrom src.copy_generator import create_copyfrom src.image_processor import validate_image, prepare_imagefrom src.output import save_copydef process_image(image_path):    is_valid, error_message = validate_image(image_path)    if not is_valid:        raise ValueError(error_message)    prepared_image = prepare_image(image_path)    copy = create_copy(prepared_image)    return copydef main():    if len(sys.argv) < 2:        print("Uso: python -m src.main <ruta_de_la_imagen>")        return    image_path = sys.argv[1]    try:        copy = process_image(image_path)        output_path = save_copy(copy, image_path)    except ValueError as error:        print(f"Error: {error}")        return    except RuntimeError as error:        print(f"Error: {error}")        return    print("\n--- COPY GENERADO ---\n")    print(copy)    print(f"\nCopy guardado en: {output_path}")    if __name__ == "__main__":    main()
+import sys
+
+from src.copy_generator import create_copy
+from src.image_processor import validate_image, prepare_image
+from src.output import save_copy
+
+
+def process_image(image_path):
+    is_valid, error_message = validate_image(image_path)
+
+    if not is_valid:
+        raise ValueError(error_message)
+
+    prepared_image = prepare_image(image_path)
+
+    copy = create_copy(prepared_image)
+
+    return copy
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Uso: python -m src.main <ruta_de_la_imagen>")
+        return
+
+    image_path = sys.argv[1]
+
+    try:
+        copy = process_image(image_path)
+        output_path = save_copy(copy, image_path)
+
+    except ValueError as error:
+        print(f"Error: {error}")
+        return
+
+    except RuntimeError as error:
+        print(f"Error: {error}")
+        return
+
+    print("\n--- COPY GENERADO ---\n")
+    print(copy)
+    print(f"\nCopy guardado en: {output_path}")
+
+
+if __name__ == "__main__":
+    main()
