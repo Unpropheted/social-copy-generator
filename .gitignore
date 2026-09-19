@@ -1,0 +1,16 @@
+# Entorno virtual
+.venv/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+
+# Archivos de macOS
+.DS_Store
+
+# Resultados generados
+outputs/
+
+# Imágenes de prueba
+images/*
+!images/.gitkeepp
