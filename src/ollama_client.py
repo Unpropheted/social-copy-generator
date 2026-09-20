@@ -1,4 +1,5 @@
 import base64
+from pathlib import Path
 
 import requests
 
@@ -7,11 +8,19 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "qwen3-vl:4b-instruct"
 
 
-def generate_copy(image_path, prompt):
-    with open(image_path, "rb") as image_file:
-        image_base64 = base64.b64encode(
-            image_file.read()
-        ).decode("utf-8")
+def generate_copy(image_paths, prompt):
+    if isinstance(image_paths, (str, Path)):
+        image_paths = [image_paths]
+
+    images_base64 = []
+
+    for image_path in image_paths:
+        with open(image_path, "rb") as image_file:
+            image_base64 = base64.b64encode(
+                image_file.read()
+            ).decode("utf-8")
+
+        images_base64.append(image_base64)
 
     payload = {
         "model": MODEL,
@@ -19,7 +28,7 @@ def generate_copy(image_path, prompt):
             {
                 "role": "user",
                 "content": prompt,
-                "images": [image_base64]
+                "images": images_base64
             }
         ],
         "stream": False,
@@ -34,7 +43,7 @@ def generate_copy(image_path, prompt):
         response = requests.post(
             OLLAMA_URL,
             json=payload,
-            timeout=120
+            timeout=300
         )
 
         response.raise_for_status()
