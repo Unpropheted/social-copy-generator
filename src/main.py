@@ -6,8 +6,6 @@ from src.image_processor import validate_image, prepare_image
 from src.output import save_copy, save_copies
 
 
-IMAGE_DIR = Path("images")
-
 ALLOWED_EXTENSIONS = {
     ".jpg",
     ".jpeg",
@@ -46,12 +44,13 @@ def process_post(image_paths):
     return copy
 
 
-def process_images():
+def discover_posts(site_directory):
     posts = []
 
-    # Imágenes individuales directamente dentro de images/
+    # Imágenes directamente dentro del sitio:
+    # cada imagen representa una publicación individual.
     individual_images = sorted(
-        path for path in IMAGE_DIR.iterdir()
+        path for path in site_directory.iterdir()
         if path.is_file()
         and path.suffix.lower() in ALLOWED_EXTENSIONS
         and not path.stem.endswith("_small")
@@ -60,15 +59,16 @@ def process_images():
     for image_path in individual_images:
         posts.append([image_path])
 
-    # Carpetas: cada carpeta representa un post/carrusel
-    post_directories = sorted(
-        path for path in IMAGE_DIR.iterdir()
+    # Carpetas "carrete": cada una representa un único carrusel.
+    carousel_directories = sorted(
+        path for path in site_directory.iterdir()
         if path.is_dir()
+        and path.name.lower().startswith("carrete")
     )
 
-    for post_directory in post_directories:
+    for carousel_directory in carousel_directories:
         images = sorted(
-            path for path in post_directory.iterdir()
+            path for path in carousel_directory.iterdir()
             if path.is_file()
             and path.suffix.lower() in ALLOWED_EXTENSIONS
             and not path.stem.endswith("_small")
@@ -77,56 +77,150 @@ def process_images():
         if images:
             posts.append(images)
 
-    if not posts:
+    return posts
+
+
+def discover_sites(main_directory):
+    main_directory = Path(main_directory)
+
+    if not main_directory.exists():
         raise ValueError(
-            "No se encontraron imágenes ni posts en la carpeta images."
+            f"La carpeta no existe: {main_directory}"
         )
 
-    copies = []
-    errors = []
+    if not main_directory.is_dir():
+        raise ValueError(
+            f"La ruta no corresponde a una carpeta: {main_directory}"
+        )
 
-    for index, post_images in enumerate(posts, start=1):
-        if len(post_images) == 1:
-            print(
-                f"\n[{index}/{len(posts)}] "
-                f"Procesando: {post_images[0].name}"
+    sites = []
+
+    site_directories = sorted(
+        path for path in main_directory.iterdir()
+        if path.is_dir()
+    )
+
+    for site_directory in site_directories:
+        posts = discover_posts(site_directory)
+
+        if posts:
+            sites.append(
+                (site_directory.name, posts)
             )
-        else:
-            print(
-                f"\n[{index}/{len(posts)}] "
-                f"Procesando carrusel con "
-                f"{len(post_images)} imágenes:"
-            )
 
-            for image_path in post_images:
-                print(f"  - {image_path.name}")
+    if not sites:
+        raise ValueError(
+            "No se encontraron sitios con imágenes "
+            "en la carpeta principal."
+        )
 
-        try:
+    return sites
+
+def print_site_structure(main_directory):
+    sites = discover_sites(main_directory)
+
+    print("\n========================================")
+    print("ESTRUCTURA DETECTADA")
+    print("========================================")
+
+    for site_name, posts in sites:
+        print(f"\nSITIO: {site_name}")
+
+        for index, post_images in enumerate(posts, start=1):
+
             if len(post_images) == 1:
-                copy = process_image(post_images[0])
+                print(f"  Publicación {index}: Individual")
+                print(f"    - {post_images[0].name}")
 
             else:
-                copy = process_post(post_images)
+                print(f"  Publicación {index}: Carrusel")
 
-            copies.append((post_images, copy))
+                for image_path in post_images:
+                    print(f"    - {image_path.name}")
 
-            print("✓ Copy generado")
 
-        except (ValueError, RuntimeError) as error:
-            errors.append((post_images, str(error)))
+def process_sites(main_directory):
+    sites = discover_sites(main_directory)
 
-            print(f"✗ Error: {error}")
+    results = []
+    errors = []
 
-    return copies, errors
+    total_posts = sum(
+        len(posts)
+        for _, posts in sites
+    )
+
+    current_post = 0
+
+    for site_name, posts in sites:
+        print(f"\n{'=' * 50}")
+        print(f"SITIO: {site_name}")
+        print(f"{'=' * 50}")
+
+        for post_images in posts:
+            current_post += 1
+
+            if len(post_images) == 1:
+                print(
+                    f"\n[{current_post}/{total_posts}] "
+                    f"Publicación individual:"
+                )
+                print(f"  - {post_images[0].name}")
+
+            else:
+                print(
+                    f"\n[{current_post}/{total_posts}] "
+                    f"Carrusel con "
+                    f"{len(post_images)} imágenes:"
+                )
+
+                for image_path in post_images:
+                    print(f"  - {image_path.name}")
+
+            try:
+                if len(post_images) == 1:
+                    copy = process_image(post_images[0])
+                else:
+                    copy = process_post(post_images)
+
+                results.append(
+                    (site_name, post_images, copy)
+                )
+
+                print("✓ Copy generado")
+
+            except (ValueError, RuntimeError) as error:
+                errors.append(
+                    (site_name, post_images, str(error))
+                )
+
+                print(f"✗ Error: {error}")
+
+    return results, errors
 
 
 def main():
-    if len(sys.argv) >= 2:
-        image_path = sys.argv[1]
+    if len(sys.argv) != 2:
+        print(
+            "Uso:\n"
+            "\n"
+            "Para una imagen:\n"
+            'python -m src.main "/ruta/imagen.jpg"\n'
+            "\n"
+            "Para una carpeta principal:\n"
+            'python -m src.main "/ruta/CARPETA_PRINCIPAL"'
+        )
+        return
 
+    input_path = Path(sys.argv[1])
+
+    # ----------------------------------------
+    # MODO 1: una sola imagen
+    # ----------------------------------------
+    if input_path.is_file():
         try:
-            copy = process_image(image_path)
-            output_path = save_copy(copy, image_path)
+            copy = process_image(input_path)
+            output_path = save_copy(copy, input_path)
 
         except ValueError as error:
             print(f"Error: {error}")
@@ -142,37 +236,47 @@ def main():
 
         return
 
-    try:
-        copies, errors = process_images()
+    # ----------------------------------------
+    # MODO 2: carpeta principal
+    # ----------------------------------------
+    if input_path.is_dir():
+        try:
+            results, errors = process_sites(input_path)
 
-    except ValueError as error:
-        print(f"Error: {error}")
+        except ValueError as error:
+            print(f"Error: {error}")
+            return
+
+        output_path = save_copies(results)
+
+        print("\n========================================")
+        print("PROCESAMIENTO COMPLETADO")
+        print("========================================")
+
+        print(f"\nPosts procesados: {len(results)}")
+        print(f"Errores: {len(errors)}")
+        print(f"Documento generado: {output_path}")
+
+        if errors:
+            print("\n--- POSTS CON ERROR ---")
+
+            for site_name, image_paths, error in errors:
+                print(f"\nSitio: {site_name}")
+
+                if len(image_paths) == 1:
+                    print(f"Imagen: {image_paths[0].name}")
+
+                else:
+                    print("Carrusel:")
+
+                    for image_path in image_paths:
+                        print(f"  - {image_path.name}")
+
+                print(f"Error: {error}")
+
         return
 
-    output_path = save_copies(copies)
-
-    print("\n========================================")
-    print("PROCESAMIENTO COMPLETADO")
-    print("========================================")
-
-    print(f"\nPosts procesados: {len(copies)}")
-    print(f"Errores: {len(errors)}")
-    print(f"Documento generado: {output_path}")
-
-    if errors:
-        print("\n--- POSTS CON ERROR ---")
-
-        for image_paths, error in errors:
-            if len(image_paths) == 1:
-                print(f"\nImagen: {image_paths[0].name}")
-
-            else:
-                print("\nCarrusel:")
-
-                for image_path in image_paths:
-                    print(f"  - {image_path.name}")
-
-            print(f"  Error: {error}")
+    print(f"Error: la ruta no existe: {input_path}")
 
 
 if __name__ == "__main__":
